@@ -1,6 +1,42 @@
 # RBAC-Lite Core Plugin
 
-**Multi-tenant WordPress plugin** with NDA enforcement, audit logging, and partner-based data isolation (RBAC Lite).
+**Lightweight WordPress plugin for multi-tenant partner environments with role-based access control, audit logging, and NDA enforcement.**
+
+---
+
+## 🎯 High-Level Overview
+
+**RBAC-Lite** is a lightweight WordPress-based access-control plugin for multi-tenant partner, reseller, franchise or subsidiary environments. It provides partner-based data isolation, user-to-partner assignment, NDA/terms enforcement and audit logging.
+
+The project demonstrates practical RBAC/IAM governance concepts in a WordPress environment: users are assigned to partner organizations, non-admin users only see data related to their own partner context, and significant access-management events are recorded for auditability.
+
+---
+
+## Key Capabilities
+
+- Partner-based user isolation
+- WordPress user profile partner assignment
+- NDA / terms enforcement
+- Audit logging for logins and partner changes
+- Admin bypass for controlled management access
+- Fail-safe empty-partner behavior
+- Lightweight single-plugin architecture
+
+---
+
+## Governance & Gatehouse Integration
+
+RBAC-Lite can be governed with external policy validation before changes are merged. The related `infrastructure-change-quality-gate` repository contains an RBAC-Lite integration example that validates access-management and tenant-isolation related change requests using risk classification, approval checks and audit evidence reporting.
+
+**Related repository:**
+```
+https://github.com/Jonnenpijonne/infrastructure-change-quality-gate
+```
+
+**Typical governance boundary:**
+
+- **Risk Class 2:** documentation, demo or validator-repository integration example
+- **Risk Class 3:** production RBAC-Lite tenant-isolation or partner-isolation logic change
 
 ---
 
@@ -502,8 +538,8 @@ add_filter( 'pre_get_users', function( $args ) {
 
 ### Support & Contributions
 
-**Repository:** https://github.com/JonSil89/RBAC-Lite  
-**Issues:** https://github.com/JonSil89/RBAC-Lite/issues
+**Repository:** https://github.com/Jonnenpijonne/RBAC-Lite  
+**Issues:** https://github.com/Jonnenpijonne/RBAC-Lite/issues
 
 ---
 
