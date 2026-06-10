@@ -10,7 +10,7 @@ on:
       change_request_file:
         description: 'Path to change request file'
         required: false
-        default: 'examples/example-class2-cicd-pipeline-update.md'
+        default: 'examples/rbac-lite-partner-isolation-change.md'
 
 jobs:
   validate:
@@ -48,7 +48,7 @@ jobs:
               exit 0
             fi
           fi
-          echo "files=examples/example-class2-cicd-pipeline-update.md" >> "$GITHUB_OUTPUT"
+          echo "files=examples/rbac-lite-partner-isolation-change.md" >> "$GITHUB_OUTPUT"
 
       - name: "🚀 Run Policy Engine"
         id: gate
