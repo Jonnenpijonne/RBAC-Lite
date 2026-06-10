@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: RBAC-Lite Core
- * Plugin URI: https://github.com/JonSil89/RBAC-Lite
+ * Plugin URI: https://github.com/Jonnenpijonne/RBAC-Lite
  * Description: Core plugin for RBAC-Lite with NDA enforcement, audit logging, and partner isolation
  * Version: 1.0.0
- * Author: JonSil89
+ * Author: Jonne Silvennoinen
  * License: GPL-2.0+
  * Text Domain: rbac-lite-core
  * Domain Path: /languages
