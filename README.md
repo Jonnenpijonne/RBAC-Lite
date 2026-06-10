@@ -546,3 +546,7 @@ add_filter( 'pre_get_users', function( $args ) {
 ### License
 
 GPL-2.0+
+
+## Completion Report
+
+For a summary of the completed RBAC-Lite + Gatehouse governance work, see [RBAC-Lite + Gatehouse Completion Report](docs/RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md).
