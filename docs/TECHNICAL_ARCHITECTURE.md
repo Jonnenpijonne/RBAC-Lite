@@ -1,768 +1,243 @@
 # RBAC-Lite Core: Technical Architecture
 
-**Document Version:** 1.1.0  
-**Last Updated:** 2026-04-30  
+**Document Version:** 1.2.0  
+**Last Updated:** 2026-06-12  
 **Status:** PHASE 1 Implementation  
 **Architecture Pattern:** Single-file WordPress plugin with singleton pattern
 
 ---
 
-## 📋 Table of Contents
+## 1. System Overview
 
-1. [System Overview](#system-overview)
-2. [Architecture Principles](#architecture-principles)
-3. [Core Components](#core-components)
-4. [Data Flow Diagrams](#data-flow-diagrams)
-5. [Security Model](#security-model)
-6. [Database Schema](#database-schema)
-7. [API & Hooks](#api--hooks)
-8. [Extensibility Points](#extensibility-points)
-9. [Performance Considerations](#performance-considerations)
-10. [Deployment Architecture](#deployment-architecture)
+RBAC-Lite Core is a lightweight WordPress plugin that demonstrates partner-based access control, user-to-partner assignment, audit logging and governance-aware change validation.
+
+Current plugin path:
+
+```text
+sadepois-core/sadepois-core.php
+```
+
+The plugin file still uses the historical class name `SadePois_Core`. This is intentional compatibility/history naming and does not change the public RBAC-Lite repository framing.
 
 ---
 
-## 🏗️ System Overview
+## 2. High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    WordPress Installation                    │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │         RBAC-Lite Core Plugin (1.1.0)                │   │
-│  ├─────────────────────────────────────────────────────┤   │
-│  │                                                       │   │
-│  │  ┌──────────────────┐     ┌──────────────────────┐  │   │
-│  │  │  User Profile    │     │  Audit Logging       │  │   │
-│  │  │  Management      │────▶│  System              │  │   │
-│  │  │                  │     │                      │  │   │
-│  │  │ • Nonce validate │     │ • Event tracking     │  │   │
-│  │  │ • Input sanitize │     │ • JSON metadata      │  │   │
-│  │  │ • Capability chk │     │ • Timestamp          │  │   │
-│  │  └──────────────────┘     └──────────────────────┘  │   │
-│  │          ▲                          ▼                │   │
-│  │          │                     wp_rbac-lite_         │   │
-│  │          │                     audit_log table      │   │
-│  │          │                                          │   │
-│  │  ┌──────────────────┐     ┌──────────────────────┐  │   │
-│  │  │  Partner        │     │  User Filtering      │  │   │
-│  │  │  Isolation      │────▶│  (pre_get_users)     │  │   │
-│  │  │                  │     │                      │  │   │
-│  │  │ • Same partner   │     │ • Admin bypass       │  │   │
-│  │  │   check          │     │ • Partner match      │  │   │
-│  │  │ • Data isolation │     │ • Empty partner fail │  │   │
-│  │  └──────────────────┘     └──────────────────────┘  │   │
-│  │                                                       │   │
-│  │  Global Helper Functions:                            │   │
-│  │  • sp_get_user_partner_id()                          │   │
-│  │  • sp_is_same_partner()                              │   │
-│  │  • sp_set_user_partner_id()                          │   │
-│  │                                                       │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │         WordPress Core                               │   │
-│  │  • Users table (wp_users)                            │   │
-│  │  • User meta (wp_usermeta) [sp_partner_id]         │   │
-│  │  • Hooks (wp_login, admin_init, etc)               │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+```text
+WordPress installation
+│
+├── RBAC-Lite Core plugin
+│   ├── User profile partner assignment
+│   ├── Partner isolation logic
+│   ├── User list filtering
+│   ├── Admin bypass
+│   ├── Audit logging
+│   └── NDA / terms enforcement concept
+│
+├── WordPress user data
+│   ├── wp_users
+│   └── wp_usermeta: sp_partner_id
+│
+└── Audit table
+    └── wp_rbac-lite_audit_log
 ```
 
 ---
 
-## 🎯 Architecture Principles
+## 3. Repository Layout
 
-### **1. Singleton Pattern**
+```text
+sadepois-core/
+└── sadepois-core.php          # Main WordPress plugin file
 
-**Purpose:** Ensures only one instance of SadePois_Core exists throughout plugin lifecycle.
+.github/workflows/
+└── compliance-check.yml       # Gatehouse compliance validation workflow
 
-```php
-private static $instance = null;
+examples/
+└── rbac-lite-partner-isolation-change.md
 
-public static function get_instance() {
-    if ( self::$instance === null ) {
-        self::$instance = new self();
-    }
-    return self::$instance;
-}
-```
+docs/
+├── RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md
+└── TECHNICAL_ARCHITECTURE.md
 
-**Benefits:**
-- ✅ Memory efficient
-- ✅ Prevents duplicate hook registration
-- ✅ Safe initialization order
-
-### **2. Single File Architecture**
-
-**Why:** WordPress best practice for simple plugins (<500 lines).
-
-```
-rbac-lite-core/
-├── rbac-lite-core.php    (All code in one file)
-└── README.md            (Documentation)
-```
-
-**Advantages:**
-- ✅ No dependencies management
-- ✅ Easy to deploy
-- ✅ Clear entry point
-- ✅ No autoloader needed
-
-### **3. Hook-Based Integration**
-
-**No core WordPress modification** - All integration via hooks:
-
-```php
-register_activation_hook()       // Plugin activation
-add_action( 'admin_init' )       // Admin initialization
-add_action( 'wp_login' )         // Login tracking
-add_filter( 'pre_get_users' )    // User filtering
-add_action( 'show_user_profile' ) // Profile UI
-```
-
-### **4. Metadata-Based Storage**
-
-**Partner assignments stored in user meta:**
-
-```php
-// Stored as:
-wp_usermeta.meta_key = 'sp_partner_id'
-wp_usermeta.meta_value = 'PARTNER_A'
-
-// Accessed as:
-get_user_meta( $user_id, 'sp_partner_id', true )
-```
-
-**Advantages:**
-- ✅ No schema modification
-- ✅ Backward compatible
-- ✅ Easy to extend (add more meta fields in PHASE 2+)
-
----
-
-## 🔧 Core Components
-
-### **1. SadePois_Core Class**
-
-**Primary class containing all plugin logic.**
-
-#### **Constructor & Hooks Setup**
-
-```php
-public function __construct() {
-    $this->setup_hooks();
-    $this->create_tables();
-}
-
-private function setup_hooks() {
-    register_activation_hook( __FILE__, array( $this, 'activate' ) );
-    add_action( 'admin_init', array( $this, 'check_nda_acceptance' ) );
-    add_action( 'show_user_profile', array( $this, 'sp_user_profile_fields' ) );
-    add_action( 'personal_options_update', array( $this, 'sp_save_user_profile_fields' ) );
-    add_filter( 'pre_get_users', array( $this, 'sp_filter_users_list' ) );
-    add_action( 'wp_login', array( $this, 'audit_log_login' ), 10, 2 );
-}
-```
-
-**Hooks registered:**
-- `register_activation_hook` - Table creation on plugin activate
-- `admin_init` - NDA check (PHASE 2+)
-- `show_user_profile` / `edit_user_profile` - Partner field in profile
-- `personal_options_update` / `edit_user_profile_update` - Save partner field
-- `pre_get_users` - Filter user listings
-- `wp_login` - Log login events
-
-#### **Component: Audit Logging**
-
-```php
-private function sp_audit_log( $user_id, $event_type, $meta = array() ) {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'rbac-lite_audit_log';
-    
-    $wpdb->insert(
-        $table_name,
-        array(
-            'user_id'   => $user_id,
-            'event_type' => $event_type,
-            'meta'      => wp_json_encode( $meta ),
-            'created_at' => current_time( 'mysql' ),
-        ),
-        array( '%d', '%s', '%s', '%s' )
-    );
-}
-```
-
-**Features:**
-- ✅ Uses prepared statements (SQL injection safe)
-- ✅ JSON metadata for extensibility
-- ✅ WordPress timezone handling
-- ✅ Type specifications for security
-
-#### **Component: Input Validation (PHASE 1)**
-
-```php
-public function sp_validate_partner_id( $partner_id ) {
-    $partner_id = trim( $partner_id );
-    
-    // Check 1: Empty
-    if ( empty( $partner_id ) ) {
-        return array( 'valid' => false, 'error' => 'Partner ID cannot be empty' );
-    }
-    
-    // Check 2: Length
-    if ( strlen( $partner_id ) > 255 ) {
-        return array( 'valid' => false, 'error' => 'Partner ID exceeds 255 characters' );
-    }
-    
-    // Check 3: Format (alphanumeric + underscore/dash)
-    if ( ! preg_match( '/^[A-Za-z0-9_-]+$/', $partner_id ) ) {
-        return array( 'valid' => false, 'error' => 'Invalid format' );
-    }
-    
-    return array( 'valid' => true, 'error' => null );
-}
-```
-
-**Validation layer prevents:**
-- SQL injection attempts
-- XSS injection
-- Invalid data format
-
-#### **Component: Partner Isolation**
-
-```php
-public function sp_filter_users_list( $args ) {
-    $current_user = wp_get_current_user();
-    
-    // Admin bypass
-    if ( $current_user->has_cap( 'manage_options' ) ) {
-        return $args;
-    }
-    
-    // Get current user's partner
-    $current_partner = $this->sp_get_user_partner_id( $current_user->ID );
-    
-    // Fail-safe: if no partner, show nothing
-    if ( empty( $current_partner ) ) {
-        return $args;
-    }
-    
-    // Query: Get all users with same partner
-    $same_partner_users = get_users( array(
-        'meta_key' => 'sp_partner_id',
-        'meta_value' => $current_partner,
-        'fields' => 'ID',
-    ) );
-    
-    // Apply filter (array(-1) returns empty result set)
-    $args['include'] = ! empty( $same_partner_users ) ? $same_partner_users : array( -1 );
-    
-    return $args;
-}
-```
-
-**Data isolation mechanism:**
-- ✅ Non-admin sees only same-partner users
-- ✅ Admin sees all users
-- ✅ Fail-safe if user has no partner
-
----
-
-## 📊 Data Flow Diagrams
-
-### **Flow 1: User Login with Audit**
-
-```
-┌──────────────┐
-│  User Login  │
-└──────┬───────┘
-       │ (wp_login hook triggered)
-       ▼
-┌──────────────────────────────┐
-│  audit_log_login()           │
-├──────────────────────────────┤
-│ • Extract: user_login,       │
-│   user object                │
-│ • Call: sp_audit_log()       │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  sp_audit_log()              │
-├──────────────────────────────┤
-│ • Sanitize data              │
-│ • JSON encode metadata       │
-│ • Prepared statement insert  │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  wp_rbac-lite_audit_log       │
-│  (Database)                  │
-├──────────────────────────────┤
-│ id: 1                        │
-│ user_id: 2                   │
-│ event_type: 'login'          │
-│ meta: {"username":"john"}    │
-│ created_at: 2026-04-29 10:30 │
-└──────────────────────────────┘
-```
-
-### **Flow 2: Partner ID Update (PHASE 1)**
-
-```
-┌─────────────────────────┐
-│  Admin edits user       │
-│  Sets partner_id field  │
-└────────────┬────────────┘
-             │ (personal_options_update hook)
-             ▼
-┌─────────────────────────────┐
-│ sp_save_user_profile_fields │
-├─────────────────────────────┤
-│ 1. Check admin capability   │
-│    ❌ Not admin? wp_die()    │
-│ 2. Verify nonce (CSRF)      │
-│    ❌ Invalid? wp_die()      │
-│ 3. Get POST data            │
-│ 4. Call sp_set_user_...()   │
-└────────────┬────────────────┘
-             │
-             ▼
-┌──────────────────────────────┐
-│ sp_set_user_partner_id()     │
-├──────────────────────────────┤
-│ 1. Call sp_validate_...()    │
-│    ❌ Invalid? Return error   │
-│ 2. Get old partner_id        │
-│ 3. Sanitize new value        │
-│ 4. update_user_meta()        │
-│ 5. Call sp_audit_log_...()   │
-│ 6. Return success array      │
-└────────────┬─────────────────┘
-             │
-             ├────────────────────┐
-             │                    │
-             ▼                    ▼
-┌──────────────────┐   ┌──────────────────────┐
-│ wp_usermeta      │   │ wp_rbac-lite_         │
-│ (Update)         │   │ audit_log (Insert)   │
-├──────────────────┤   ├──────────────────────┤
-│ user_id: 2       │   │ user_id: 2           │
-│ meta_key: ...    │   │ event_type: ...      │
-│ meta_value: ...  │   │ meta: old→new        │
-│                  │   │ created_at: now      │
-└──────────────────┘   └──────────────────────┘
-```
-
-### **Flow 3: User List Filtering**
-
-```
-┌──────────────────────┐
-│ Partner user clicks  │
-│ "Users" in admin     │
-└──────────┬───────────┘
-           │ (pre_get_users hook)
-           ▼
-┌──────────────────────────────┐
-│ sp_filter_users_list()       │
-├──────────────────────────────┤
-│ 1. Get current user          │
-│ 2. Is admin?                 │
-│    ✅ Yes? Return unfiltered │
-│    ❌ No? Continue...         │
-│ 3. Get current user's partner│
-│ 4. Query: users with partner │
-│ 5. Return filtered args      │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│ WordPress WP_User_Query      │
-│ Filters results              │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│ Admin sees:                  │
-│ ✅ User A (same partner)     │
-│ ✅ User B (same partner)     │
-│ ❌ User C (different partner)│
-│ ❌ User D (no partner)       │
-└──────────────────────────────┘
+validation/
+├── pre-merge-checks/          # Legacy validator
+└── pre_merge_checks/          # Modular validator / CLI
 ```
 
 ---
 
-## 🔐 Security Model
+## 4. Architecture Principles
 
-### **1. OWASP Top 10 Mitigation**
+### 4.1 Single-file plugin baseline
 
-| OWASP Risk | Attack | Mitigation | Code |
-|-----------|--------|-----------|------|
-| A03:2021 – Injection | SQL Injection | Prepared statements | `$wpdb->insert( $table, $data, $types )` |
-| A03:2021 – Injection | XSS (Stored) | Output escaping | `esc_attr()`, `esc_html()` |
-| A04:2021 – CSRF | CSRF attacks | Nonce validation | `wp_nonce_field()`, `wp_verify_nonce()` |
-| A01:2021 – Broken AC | Unauthorized access | Capability checks | `current_user_can( 'manage_options' )` |
-| A07:2021 – ID Testing | Invalid input | Format validation | Regex `[A-Za-z0-9_-]+` |
+RBAC-Lite is intentionally lightweight. The current plugin logic is kept in a single PHP file to keep deployment simple and reviewable.
 
-### **2. Defense in Depth**
+Benefits:
 
-```
-┌─────────────────────────────────────────┐
-│  Layer 1: Client-side Validation        │
-│  • HTML5 pattern attribute              │
-│  • maxlength="255"                      │
-│  • User feedback before submission      │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│  Layer 2: HTTP Layer                    │
-│  • CSRF nonce validation                │
-│  • Capability check                     │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│  Layer 3: Application Layer             │
-│  • Input sanitization                   │
-│  • Format validation (regex)            │
-│  • Length validation                    │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│  Layer 4: Database Layer                │
-│  • Prepared statements                  │
-│  • Type specifications                  │
-│  • Immutable audit logs                 │
-└─────────────────────────────────────────┘
+- no external PHP dependencies
+- simple WordPress plugin activation model
+- clear audit/review surface
+- easy deployment into a WordPress plugin directory
+
+### 4.2 Hook-based WordPress integration
+
+The plugin integrates through WordPress hooks instead of modifying WordPress core.
+
+Core hook categories:
+
+- plugin activation
+- admin initialization
+- user profile fields
+- user profile save handling
+- user list filtering
+- login audit logging
+
+### 4.3 Metadata-based partner assignment
+
+Partner assignment uses WordPress user meta:
+
+```text
+meta_key:   sp_partner_id
+meta_value: PARTNER_A / PARTNER_B / etc.
 ```
 
-### **3. Access Control Model**
+This keeps the partner assignment lightweight and compatible with normal WordPress user records.
 
-```
-┌────────────────────────────────────┐
-│          Operation                 │
-├────────────────────────────────────┤
-│ View Partner ID field             │
-│  └─ Capability: manage_options     │
-│                                    │
-│ Edit Partner ID field             │
-│  ├─ Capability: manage_options     │
-│  ├─ Nonce: sp_save_partner_{id}   │
-│  └─ Validation: format & length    │
-│                                    │
-│ See other users                    │
-│  ├─ Non-admin:                     │
-│  │  └─ Same partner only           │
-│  └─ Admin:                         │
-│     └─ All users                   │
-│                                    │
-│ View Audit Logs                    │
-│  └─ Capability: manage_options     │
-│     (+ filters in PHASE 2)         │
-└────────────────────────────────────┘
-```
+### 4.4 Fail-safe empty partner behavior
+
+Users without a partner context should not see unrelated partner users. Empty or missing partner assignments should fail closed rather than exposing broad visibility.
+
+### 4.5 Admin bypass
+
+Admin users retain management visibility. This is intentional and should be treated as a privileged access path.
 
 ---
 
-## 📋 Database Schema
+## 5. Core Components
 
-### **Audit Log Table**
-
-```sql
-CREATE TABLE wp_rbac-lite_audit_log (
-    id mediumint(9) NOT NULL AUTO_INCREMENT,
-    user_id bigint(20) NOT NULL,
-    event_type varchar(50) NOT NULL,
-    meta longtext DEFAULT NULL,
-    created_at datetime DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    KEY user_id (user_id),
-    KEY event_type (event_type),
-    KEY created_at (created_at)
-);
-```
-
-**Index Strategy:**
-
-| Index | Purpose | Query Example |
-|-------|---------|---------------|
-| `PRIMARY KEY (id)` | Unique identifier | Direct row access |
-| `KEY user_id` | All events for user | `WHERE user_id = 5` |
-| `KEY event_type` | All events of type | `WHERE event_type = 'login'` |
-| `KEY created_at` | Date range queries | `WHERE created_at > '2026-04-01'` |
-
-### **User Meta Storage**
-
-```sql
-wp_usermeta:
-user_id    | meta_key      | meta_value
------------|---------------|----------------
-2          | sp_partner_id | PARTNER_A
-3          | sp_partner_id | PARTNER_B
-5          | sp_partner_id | PARTNER_A
-```
-
-**Why user meta?**
-- ✅ No schema modification required
-- ✅ Scales horizontally (indexed queries)
-- ✅ Backward compatible
-- ✅ Easy to extend in PHASE 2+ (add more meta fields)
+| Component | Purpose |
+| --- | --- |
+| `SadePois_Core` | Main plugin class / singleton |
+| Partner user meta | Stores partner assignment per user |
+| User profile field | Lets admins assign partner IDs |
+| User filtering | Limits non-admin user visibility by partner context |
+| Audit logging | Records access-management events |
+| NDA / terms concept | Provides a governance hook for controlled access |
 
 ---
 
-## 🔗 API & Hooks
+## 6. Governance Model
 
-### **Global Helper Functions**
+RBAC-Lite should be treated as an access-control-related component. Even small changes may affect visibility, permissions or auditability.
 
-#### **1. `sp_get_user_partner_id( $user_id )`**
+Recommended risk interpretation:
 
-```php
-$partner = sp_get_user_partner_id( 42 );
-// Returns: 'PARTNER_A' or null
-```
+| Risk class | Example |
+| --- | --- |
+| Class 1 | Documentation-only change with no control impact |
+| Class 2 | Governance example, validation rule or non-production access-control documentation change |
+| Class 3 | Production tenant-isolation, partner-isolation, permission or audit-logging logic change |
 
-**Usage:**
-```php
-if ( $partner ) {
-    echo "User belongs to: " . $partner;
-}
-```
+Class 2 and Class 3 changes should include:
 
-#### **2. `sp_is_same_partner( $user_id_1, $user_id_2 )`**
-
-```php
-$same = sp_is_same_partner( 42, 43 );
-// Returns: true or false
-```
-
-**Usage:**
-```php
-if ( sp_is_same_partner( 42, 43 ) ) {
-    echo "Users can see each other";
-}
-```
-
-#### **3. `sp_set_user_partner_id( $user_id, $partner_id )`**
-
-```php
-$result = sp_set_user_partner_id( 42, 'PARTNER_A' );
-// Returns: array( 'success' => bool, 'message' => string )
-```
-
-**Usage:**
-```php
-$result = sp_set_user_partner_id( 42, 'PARTNER_A' );
-if ( $result['success'] ) {
-    echo "✅ " . $result['message'];
-} else {
-    echo "❌ " . $result['message'];
-}
-```
-
-### **WordPress Hooks**
-
-#### **Filters**
-
-**`pre_get_users` (Priority: default)**
-
-Automatically filters user listings for non-admin users.
-
-```php
-// Non-admin sees only:
-apply_filters( 'pre_get_users', $args );
-// Modifies: $args['include'] = [users with same partner]
-
-// Admin sees: all users (no modification)
-```
-
-**Extending:**
-
-```php
-add_filter( 'pre_get_users', function( $args ) {
-    // Custom logic after RBAC-Lite filter
-    // $args['include'] already contains same-partner users
-    return $args;
-}, 11 ); // Priority > 10 (RBAC-Lite runs at 10)
-```
-
-#### **Actions**
-
-**`wp_login` (Priority: 10)**
-
-Logs every successful user login.
-
-```php
-do_action( 'wp_login', $user_login, $user );
-// Triggers: sp_audit_log( $user->ID, 'login', [...] )
-```
-
-**Extending:**
-
-```php
-add_action( 'wp_login', function( $user_login, $user ) {
-    // Custom login handling
-    do_something_with_user( $user->ID );
-}, 11, 2 ); // Priority > 10, 2 parameters
-```
+- impact analysis
+- rollback plan
+- test plan
+- approval evidence
+- validation output
 
 ---
 
-## 🔌 Extensibility Points
+## 7. Gatehouse Validation
 
-### **PHASE 2: NDA Enforcement**
+The repository includes a Gatehouse-style compliance workflow:
 
-**New hooks to add:**
-
-```php
-// After PHASE 2 implementation:
-do_action( 'sp_nda_accepted', $user_id, $nda_version );
-apply_filters( 'sp_nda_content', $nda_text, $version );
+```text
+.github/workflows/compliance-check.yml
 ```
 
-### **PHASE 3: User Archival**
+The workflow validates change-request files under:
 
-**New functions to add:**
-
-```php
-sp_archive_user( $user_id );
-sp_restore_user( $user_id );
-sp_is_user_archived( $user_id );
+```text
+examples/*.md
+templates/*.md
 ```
 
-### **PHASE 4: Partner Entity**
+Default example:
 
-**New table:**
-
-```sql
-CREATE TABLE wp_rbac-lite_partners (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    partner_id VARCHAR(255) UNIQUE NOT NULL,
-    partner_name VARCHAR(255),
-    contact_email VARCHAR(255),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+```text
+examples/rbac-lite-partner-isolation-change.md
 ```
 
-### **PHASE 5: Data Isolation**
+The validator checks:
 
-**Extend to posts, metadata:**
-
-```php
-add_filter( 'pre_get_posts', array( $this, 'sp_filter_posts_list' ) );
-add_filter( 'user_has_cap', array( $this, 'sp_check_post_access' ), 10, 4 );
-```
+- required sections
+- required fields
+- risk class
+- rollback plan
+- test plan
+- approval count
+- CISO / freeze requirements for high-risk changes
+- absolute path warnings
+- audit report output
 
 ---
 
-## ⚡ Performance Considerations
+## 8. Local Validation Commands
 
-### **1. Database Query Optimization**
-
-**Current indexes:**
-
-```
-wp_rbac-lite_audit_log:
-├── PRIMARY KEY (id)           - O(1) lookup
-├── KEY user_id (user_id)      - O(log n) for user queries
-├── KEY event_type (event_type) - O(log n) for event type queries
-└── KEY created_at (created_at) - O(log n) for date range
-
-wp_usermeta:
-├── PRIMARY (umeta_id)
-├── KEY user_id (user_id)      - Built-in WordPress index
-└── KEY meta_key, meta_value   - Built-in WordPress index
-```
-
-**Query Performance:**
-
-| Query | Index Used | Estimated Rows | Time |
-|-------|-----------|-----------------|------|
-| `WHERE user_id = 5` | user_id | 50-100 | <1ms |
-| `WHERE event_type = 'login'` | event_type | 10K+ | <10ms |
-| `WHERE created_at BETWEEN x AND y` | created_at | 100-1K | <5ms |
-| Full table scan | None | ALL | >1s |
-
-### **2. Caching Strategy** (PHASE 2+)
-
-```php
-// Current: Direct queries every time
-$partner = get_user_meta( $user_id, 'sp_partner_id', true );
-
-// PHASE 2+: Add caching
-$partner = wp_cache_get( "sp_partner_$user_id" );
-if ( false === $partner ) {
-    $partner = get_user_meta( $user_id, 'sp_partner_id', true );
-    wp_cache_set( "sp_partner_$user_id", $partner, 'rbac-lite', 12 * HOUR_IN_SECONDS );
-}
-```
-
-### **3. Audit Log Pruning** (PHASE 3+)
+Legacy validator:
 
 ```bash
-# Monthly archival (CRON job)
-wp db query "
-  DELETE FROM wp_rbac-lite_audit_log 
-  WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)
-"
+python validation/pre-merge-checks/validate-change-request.py examples/rbac-lite-partner-isolation-change.md
+```
+
+Modular validator:
+
+```bash
+PYTHONPATH=. python validation/pre_merge_checks/cli.py examples/rbac-lite-partner-isolation-change.md
+```
+
+Python syntax check:
+
+```bash
+python -m py_compile validation/pre-merge-checks/validate-change-request.py
+python -m py_compile validation/pre_merge_checks/*.py
+```
+
+Expected result:
+
+```text
+QUALITY GATE: PASSED
+Errors: 0
+Warnings: 0
 ```
 
 ---
 
-## 🚀 Deployment Architecture
+## 9. Security Considerations
 
-### **System Requirements**
+Key security expectations:
 
-| Component | Requirement | Notes |
-|-----------|-------------|-------|
-| **PHP** | 7.2+ | WordPress minimum |
-| **MySQL** | 5.7+ | For JSON handling |
-| **WordPress** | 5.0+ | For nonce API |
-| **Plugins** | None | No dependencies |
-| **Server** | Standard | Single-server compatible |
-
-### **Deployment Checklist**
-
-```
-PRE-DEPLOYMENT:
-├─ [ ] Code review (security audit)
-├─ [ ] Test on staging (PHASE 1 tests)
-├─ [ ] Backup production database
-├─ [ ] Plan rollback procedure
-└─ [ ] Notify users of deployment window
-
-DEPLOYMENT:
-├─ [ ] Upload plugin file
-├─ [ ] Activate plugin (triggers table creation)
-├─ [ ] Verify audit table created
-├─ [ ] Test nonce validation
-├─ [ ] Test partner filtering
-└─ [ ] Run compliance checklist
-
-POST-DEPLOYMENT:
-├─ [ ] Monitor error logs
-├─ [ ] Test all user roles
-├─ [ ] Verify audit logging works
-├─ [ ] Check database performance
-└─ [ ] Document deployment date
-```
+- sanitize partner ID input
+- escape partner ID output
+- restrict partner editing to admin users
+- fail closed for missing partner context
+- keep audit logging enabled for relevant events
+- treat admin bypass as privileged access
+- validate risky access-control changes before merge
 
 ---
 
-## 📞 Architecture Support
+## 10. Portfolio Interpretation
 
-For technical questions:
-- 📖 Code: https://github.com/JonSil89/RBAC-Lite/blob/main/rbac-lite-core/rbac-lite-core.php
-- 📖 Database: See "Database Schema" section
-- 📖 Security: See "Security Model" section
-- 📖 Extensibility: See "Extensibility Points" section
+RBAC-Lite is not presented as an enterprise IAM product. It is a lightweight access-control implementation and governance portfolio example.
 
----
+The core value is the combination:
 
-**Document Version:** 1.1.0  
-**Last Updated:** 2026-04-30  
-**Architecture Pattern:** Single-file WordPress plugin with singleton pattern  
-**Status:** PHASE 1 Complete ✅
+```text
+RBAC-Lite = access-control use case
+Gatehouse = governance and validation layer
+```
+
+Together they demonstrate how access-control-related changes can be made traceable, reviewable and auditable.
