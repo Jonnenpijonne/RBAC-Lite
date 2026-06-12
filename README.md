@@ -34,6 +34,7 @@ examples/
 └── rbac-lite-partner-isolation-change.md
 
 docs/
+├── DEVELOPER_GUIDE.md
 ├── RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md
 └── TECHNICAL_ARCHITECTURE.md
 
@@ -141,6 +142,7 @@ Warnings: 0
 
 ## Key documentation
 
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)
 - [RBAC-Lite + Gatehouse Completion Report](docs/RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md)
 
