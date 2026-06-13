@@ -6,6 +6,8 @@ RBAC-Lite demonstrates practical RBAC/IAM concepts in a WordPress context: users
 
 The repository also demonstrates how access-control-related changes can be governed through Gatehouse-style quality gates: risk classification, approvals, rollback planning, validation and audit evidence.
 
+> **Concept note:** RBAC-Lite is an intentionally lightweight reference implementation seed and governance example, not the final enterprise implementation. For the intended use as a concept scaffold / AI-assisted handoff artifact, see [docs/CONCEPT_NOTE.md](docs/CONCEPT_NOTE.md).
+
 ---
 
 ## What this repository demonstrates
@@ -34,6 +36,7 @@ examples/
 └── rbac-lite-partner-isolation-change.md
 
 docs/
+├── CONCEPT_NOTE.md
 ├── DEVELOPER_GUIDE.md
 ├── RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md
 └── TECHNICAL_ARCHITECTURE.md
@@ -142,6 +145,7 @@ Warnings: 0
 
 ## Key documentation
 
+- [Concept Note](docs/CONCEPT_NOTE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)
 - [RBAC-Lite + Gatehouse Completion Report](docs/RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md)
