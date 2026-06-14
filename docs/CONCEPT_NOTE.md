@@ -4,7 +4,7 @@
 
 RBAC-Lite was created as a lightweight reference implementation seed for a WordPress-based partner access-control and governance concept.
 
-The goal is not to claim that this repository is a finished enterprise IAM platform or a production-ready compliance product. The goal is to make the core idea concrete enough that a technical specialist, implementation team or AI-assisted development workflow can use it as a starting point for a more mature implementation.
+The goal is not to claim that this repository is a finished enterprise IAM platform or a production-ready compliance product. The goal is to make the core idea concrete enough that a technical specialist, implementation team or implementation workflow can use it as a starting point for a more mature implementation.
 
 In practical terms, this repository acts as a small, inspectable model of the concept: partner isolation, user-to-partner assignment, audit logging, NDA or terms-enforcement ideas, and governance documentation around a WordPress plugin structure.
 
@@ -30,11 +30,11 @@ Instead, the concepts, boundaries and control ideas should be reviewed and reimp
 
 ---
 
-## AI-Assisted Handoff Context
+## Implementation Handoff Context
 
-This repository is also suitable as an AI-assisted implementation handoff artifact.
+This repository is also suitable as an implementation handoff artifact.
 
-A technical user can provide this repository to an AI coding assistant, implementation engineer or architect as a reference model and instruct the tool or team to create a new enterprise-grade implementation based on the same concepts rather than copying the repository directly.
+A technical user can provide this repository to an implementation engineer or architect as a reference model and instruct the team to create a new enterprise-grade implementation based on the same concepts rather than copying the repository directly.
 
 The intended instruction is not:
 
@@ -49,20 +49,6 @@ Use this repository as a reference seed. Preserve the access-control, partner-is
 ```
 
 This is why the implementation is intentionally lightweight: it keeps the concept readable, transferable and easy to reason about.
-
----
-
-## Relationship to Airpack Light
-
-The same pattern can be used in the wider Sade Pois / Airpack Light context: a small reference implementation can communicate the product and control idea clearly enough that a separate enterprise implementation can be built with stronger architecture, validation, testing, operational controls and compliance evidence.
-
-Airpack Light / Sade Pois reference context:
-
-```text
-https://github.com/JonSil89/Sadepois
-```
-
-If a separate Airpack Light repository or product documentation location is used later, that link can replace or supplement this placeholder reference.
 
 ---
 
