@@ -221,6 +221,7 @@ class SadePois_Core {
         }
         
         $partner_id = $this->sp_get_user_partner_id( $user->ID );
+        wp_nonce_field( 'sp_save_partner_id', 'sp_partner_id_nonce' );
         ?>
         <h3><?php esc_html_e( 'Partner Settings', 'rbac-lite-core' ); ?></h3>
         <table class="form-table">
@@ -254,9 +255,19 @@ class SadePois_Core {
         if ( ! current_user_can( 'manage_options' ) ) {
             return;
         }
+
+        if ( ! isset( $_POST['sp_partner_id_nonce'] ) ) {
+            return;
+        }
+
+        $nonce = sanitize_text_field( wp_unslash( $_POST['sp_partner_id_nonce'] ) );
+        if ( ! wp_verify_nonce( $nonce, 'sp_save_partner_id' ) ) {
+            return;
+        }
         
         if ( isset( $_POST['sp_partner_id'] ) ) {
-            $this->sp_set_user_partner_id( $user_id, $_POST['sp_partner_id'] );
+            $partner_id = sanitize_text_field( wp_unslash( $_POST['sp_partner_id'] ) );
+            $this->sp_set_user_partner_id( $user_id, $partner_id );
         }
     }
 
@@ -276,8 +287,9 @@ class SadePois_Core {
         
         $current_partner = $this->sp_get_user_partner_id( $current_user->ID );
         
-        // If user has no partner_id, don't filter (fail-safe)
+        // If user has no partner_id, fail closed and show no users.
         if ( empty( $current_partner ) ) {
+            $args['include'] = array( -1 );
             return $args;
         }
         
@@ -306,8 +318,8 @@ SadePois_Core::get_instance();
  * @return string|null
  */
 function sp_get_user_partner_id( $user_id ) {
-    $rbac-lite = SadePois_Core::get_instance();
-    return $rbac-lite->sp_get_user_partner_id( $user_id );
+    $rbac_lite = SadePois_Core::get_instance();
+    return $rbac_lite->sp_get_user_partner_id( $user_id );
 }
 
 /**
@@ -318,8 +330,8 @@ function sp_get_user_partner_id( $user_id ) {
  * @return bool
  */
 function sp_is_same_partner( $user_id_1, $user_id_2 ) {
-    $rbac-lite = SadePois_Core::get_instance();
-    return $rbac-lite->sp_is_same_partner( $user_id_1, $user_id_2 );
+    $rbac_lite = SadePois_Core::get_instance();
+    return $rbac_lite->sp_is_same_partner( $user_id_1, $user_id_2 );
 }
 
 /**
@@ -330,6 +342,6 @@ function sp_is_same_partner( $user_id_1, $user_id_2 ) {
  * @return bool
  */
 function sp_set_user_partner_id( $user_id, $partner_id ) {
-    $rbac-lite = SadePois_Core::get_instance();
-    return $rbac-lite->sp_set_user_partner_id( $user_id, $partner_id );
+    $rbac_lite = SadePois_Core::get_instance();
+    return $rbac_lite->sp_set_user_partner_id( $user_id, $partner_id );
 }
