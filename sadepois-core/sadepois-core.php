@@ -50,7 +50,7 @@ class SadePois_Core {
         add_action( 'edit_user_profile_update', array( $this, 'sp_save_user_profile_fields' ) );
 
         // Users list filtering
-        add_filter( 'pre_get_users', array( $this, 'sp_filter_users_list' ) );
+        add_action( 'pre_get_users', array( $this, 'sp_filter_users_list' ) );
 
         // Login audit logging
         add_action( 'wp_login', array( $this, 'audit_log_login' ), 10, 2 );
@@ -70,7 +70,7 @@ class SadePois_Core {
         global $wpdb;
         
         $charset_collate = $wpdb->get_charset_collate();
-        $table_name = $wpdb->prefix . 'rbac-lite_audit_log';
+        $table_name = $wpdb->prefix . 'rbac_lite_audit_log';
 
         if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
             $sql = "CREATE TABLE $table_name (
@@ -130,7 +130,7 @@ class SadePois_Core {
     private function sp_audit_log( $user_id, $event_type, $meta = array() ) {
         global $wpdb;
         
-        $table_name = $wpdb->prefix . 'rbac-lite_audit_log';
+        $table_name = $wpdb->prefix . 'rbac_lite_audit_log';
         
         $wpdb->insert(
             $table_name,
@@ -274,23 +274,22 @@ class SadePois_Core {
     /**
      * Filter users list to show only same-partner users (non-admin)
      * 
-     * @param array $args
-     * @return array
+     * @param WP_User_Query $query
      */
-    public function sp_filter_users_list( $args ) {
+    public function sp_filter_users_list( $query ) {
         $current_user = wp_get_current_user();
         
         // Admins see everything
         if ( $current_user->has_cap( 'manage_options' ) ) {
-            return $args;
+            return;
         }
         
         $current_partner = $this->sp_get_user_partner_id( $current_user->ID );
         
         // If user has no partner_id, fail closed and show no users.
         if ( empty( $current_partner ) ) {
-            $args['include'] = array( -1 );
-            return $args;
+            $query->set( 'include', array( -1 ) );
+            return;
         }
         
         // Get users with same partner_id
@@ -300,9 +299,7 @@ class SadePois_Core {
             'fields' => 'ID',
         ) );
         
-        $args['include'] = ! empty( $same_partner_users ) ? $same_partner_users : array( -1 );
-        
-        return $args;
+        $query->set( 'include', ! empty( $same_partner_users ) ? $same_partner_users : array( -1 ) );
     }
 }
 
