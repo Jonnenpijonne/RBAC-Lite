@@ -87,7 +87,9 @@ healthy
 
 ### Step 4: Verify partner isolation
 
-- Log in as User A (non-admin)
+**Note:** Basic WordPress non-admin roles may have limited access to the Users admin screen. For this test, use an Editor or other role that can view user listings, or validate the filtering through a database query or helper function call.
+
+- Log in as User A (non-admin, with access to user listings)
 - Go to: `Users`
 - Verify: User A sees only users in `partner_a` context (should see User A but not User B)
 - Log out, then log in as User B
@@ -96,6 +98,8 @@ healthy
 - Log out, then log in as Admin
 - Go to: `Users`
 - Verify: Admin sees all users (User A, User B, Admin)
+
+Alternatively, query the filtered user list directly via WordPress CLI or database if the admin screen is not accessible.
 
 ### Step 5: Check audit log (if accessible)
 
