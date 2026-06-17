@@ -40,7 +40,7 @@ echo "=================================================="
 echo "  Removing database volume..."
 echo "=================================================="
 
-docker volume rm "$VOLUME_NAME" 2>/dev/null || echo "Volume not found or already removed."
+docker volume remove "$VOLUME_NAME" 2>/dev/null || echo "Volume not found or already removed."
 
 echo ""
 echo "=================================================="
