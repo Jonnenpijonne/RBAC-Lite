@@ -25,6 +25,31 @@ Verify:
 docker compose version
 ```
 
+## Docker Desktop / Docker Manager view
+
+This environment can be started from the command line and then inspected in Docker Desktop or another graphical Docker manager.
+
+See:
+
+```text
+dev-environment/DOCKER_DESKTOP.md
+```
+
+Expected Compose project / stack name:
+
+```text
+rbac-lite-local
+```
+
+Expected containers:
+
+```text
+rbac-lite-local-db
+rbac-lite-local-wordpress
+```
+
+Docker Desktop is used only as a local operational view. The authoritative environment definition remains this repository's Compose file, environment example and reset script.
+
 ## Start the environment
 
 From the repository root:
