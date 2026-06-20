@@ -18,6 +18,7 @@ The repository also demonstrates how access-control-related changes can be gover
 | Tenant / partner isolation | Non-admin users are scoped to their own partner context |
 | Auditability | Audit logging model for login and partner-change events |
 | WordPress operations | Single-plugin architecture using WordPress hooks and user meta |
+| Local Docker validation | WordPress + MariaDB Docker Compose environment for local testing |
 | Change governance | Gatehouse compliance example and CI validation workflow |
 | DevSecOps documentation | Risk class, approvals, rollback and evidence reporting |
 
@@ -28,6 +29,14 @@ The repository also demonstrates how access-control-related changes can be gover
 ```text
 sadepois-core/
 └── sadepois-core.php          # Main WordPress plugin file
+
+dev-environment/
+├── docker-compose.yml         # Local WordPress + MariaDB runtime
+├── .env.example               # Local-only placeholder environment values
+├── README.md                  # Local validation workflow
+├── DOCKER_DESKTOP.md          # Docker Desktop / Docker manager workflow
+└── scripts/
+    └── reset-local.sh         # Local test environment reset script
 
 .github/workflows/
 └── compliance-check.yml       # Gatehouse compliance validation workflow
@@ -91,6 +100,25 @@ After activation, verify:
 
 ---
 
+## Local Docker validation
+
+A local Docker Compose environment is included for repeatable WordPress + MariaDB validation without production data.
+
+Start the local validation environment from the repository root:
+
+```bash
+docker compose -p rbac-lite-local -f dev-environment/docker-compose.yml --env-file dev-environment/.env.example up -d
+```
+
+Key local documentation:
+
+- [Local Docker Test Environment](dev-environment/README.md)
+- [Docker Desktop / Docker Manager Workflow](dev-environment/DOCKER_DESKTOP.md)
+
+The local environment is intentionally bound to localhost only and is not a production deployment model.
+
+---
+
 ## Governance & Gatehouse integration
 
 RBAC-Lite is the access-control use case. Gatehouse is the governance and validation layer.
@@ -149,6 +177,8 @@ Warnings: 0
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)
 - [RBAC-Lite + Gatehouse Completion Report](docs/RBAC_LITE_GATEHOUSE_COMPLETION_REPORT.md)
+- [Local Docker Test Environment](dev-environment/README.md)
+- [Docker Desktop / Docker Manager Workflow](dev-environment/DOCKER_DESKTOP.md)
 
 ---
 
@@ -165,6 +195,8 @@ The goal is not only to show a plugin concept, but to make the related access-co
 | Area | Status |
 | --- | --- |
 | Plugin concept | Implemented as lightweight baseline |
+| Local Docker validation environment | Implemented |
+| Docker Desktop / Docker manager workflow | Documented |
 | Gatehouse validation example | Implemented |
 | Compliance workflow | Implemented |
 | Legacy validator | Present |
